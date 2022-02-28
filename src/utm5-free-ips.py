@@ -3,10 +3,12 @@
 
 
 from __future__ import annotations
-from mysql.connector import MySQLConnection, Error
+from mysql.connector import MySQLConnection
+# from mysql.connector import Error
 from configparser import ConfigParser
 from PyQt5.QtWidgets import QApplication
-from Gui import Gui
+# from Gui import Gui
+from typing import List, Dict, Tuple
 import argparse
 import logging
 import os
@@ -15,14 +17,15 @@ import sys
 
 
 APP_NAME: str = os.path.splitext(os.path.basename(sys.argv[0]))[0]
-DESCRIPTION: str = "The script searches for free ip addresses in NetUp UTM5 billing system."
-SUBNET: str = "192.168.0.0/24"
+DESCRIPTION: str = """The script searches for free
+ip addresses in NetUp UTM5 billing system."""
+MODES: Tuple[str] = ("gui", "con")
 SQL_QUERY: str = "SELECT ip FROM ip_groups WHERE is_deleted=0"
 
 logging.basicConfig(
-    level = logging.INFO,
-    format = "%(asctime)s [%(threadName)s] [%(levelname)s] - %(message)s",
-    handlers = [
+    level=logging.INFO,
+    format="%(asctime)s [%(threadName)s] [%(levelname)s] - %(message)s",
+    handlers=[
         logging.FileHandler("{0}/{1}.log".format(os.getcwd(), APP_NAME)),
         logging.StreamHandler(sys.stdout)
     ]
@@ -37,25 +40,23 @@ def get_args() -> List:
     :rtype: List[str]
     """
 
-    # parser: Object = argparse.ArgumentParser(description = DESCRIPTION)
-    # parser.add_argument('subnet', 
-    #                     metavar = "SUBNET", 
-    #                     type = str, 
-    #                     nargs = "?", 
-    #                     default = "192.168.0.0/24", 
-    #                     help = "Subnet of IP address ({})".format(SUBNET))
-    # parser.add_argument('mode', 
-    #                     metavar = "MODE", 
-    #                     type = str, 
-    #                     nargs = "?", 
-    #                     default = "gui", 
-    #                     help = "Application mode (gui, con).")
-    # parser.add_argument('-a', 
-    #                     help = "List all available ip addresses.")
-    # return parser.parse_args()
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser.add_argument('subnet',
+                        nargs="+",
+                        help="ipv4 subnet (192.168.0.0/24)")
+    parser.add_argument("-m",
+                        dest="mode",
+                        choices=["gui", "con"],
+                        required=True,
+                        help="choose application mode")
+    parser.add_argument("-a",
+                        action="store_true",
+                        help="list all available ip addresses")
+    return parser.parse_args()
 
 
-def read_db_config(filename: str = "config.ini", section: str = "mysql") -> Dict:
+def read_db_config(filename: str = "config.ini",
+                   section: str = "mysql") -> Dict:
     """
     Function returns database connection settings
 
@@ -87,7 +88,7 @@ def read_db_config(filename: str = "config.ini", section: str = "mysql") -> Dict
 
 def connect_to_db() -> MySQLConnection:
     """
-    Function connects to a database using parameters 
+    Function connects to a database using parameters
     from config file and returns a connection
 
     :returns: Reference to an object representing a database connection
@@ -124,21 +125,24 @@ def get_ips_from_db() -> List:
             for ip in db_data:
                 ips_from_db.append(ipaddress.ip_address(ip[0]))
             conn.close()
-        return ips_from_db
+    return ips_from_db
+
 
 def main():
     """ Application entry point """
 
     args: List[str] = get_args()
+    print(args)
     app = QApplication(sys.argv)
-    subnet = ipaddress.ip_network(args.subnet)
+    subnets: List[str] = []
+    for subnet in args.subnet:
+        subnets.append(ipaddress.ip_network(subnet))
     ips_from_db = get_ips_from_db()
     if len(ips_from_db) > 0:
-        for ip in subnet.hosts():
-            if ip not in ips_from_db:
-                print(ip)
-                if len(sys.argv) < 3 or sys.argv[2].upper() != "ALL":
-                    sys.exit(0)
+        for subnet in subnets:
+            for ip in subnet.hosts():
+                if ip not in ips_from_db:
+                    print(ip)
         sys.exit(app.exec_())
 
 

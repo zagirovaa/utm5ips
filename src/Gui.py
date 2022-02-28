@@ -21,8 +21,9 @@ class Gui(QWidget):
         self.lst_addresses.setGeometry(10, 10, 151, 211)
         self.lst_addresses.setObjectName("lst_addresses")
         self.show()
-    
-    def show_dialog(self, title: str = "Default", message: str = "Default text message") -> None:
+
+    def show_dialog(self, title: str = "Default",
+                    message: str = "Default text message") -> None:
         """
         Function shows a dialogbox with given title and message
 
@@ -42,4 +43,3 @@ class Gui(QWidget):
         dialog.setWindowTitle(title)
         dialog.setText(message)
         dialog.exec()
-    
