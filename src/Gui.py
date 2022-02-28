@@ -7,14 +7,10 @@ from PyQt5.QtWidgets import QWidget, QListWidget, QMessageBox
 
 
 class Gui(QWidget):
-    """
-    Pass
-    """
+    """ Class for creating QT5 form with listbox element """
 
     def __init__(self) -> None:
-        """
-        Pass
-        """
+        """ Constructor """
 
         super().__init__()
         self.resize(171, 231)
@@ -28,8 +24,13 @@ class Gui(QWidget):
     
     def show_dialog(self, title: str = "Default", message: str = "Default text message") -> None:
         """
-        Функция выводит диалоговое окно с текстовым
-        сообщением, заданным в качестве параметра для функции
+        Function shows a dialogbox with given title and message
+
+        :param title: Dialogbox title
+        :type title: str
+
+        :param message: Dialogbox message
+        :type message: str
         """
 
         if title.strip() == "":
