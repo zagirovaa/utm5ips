@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 from mysql.connector import MySQLConnection
-# from mysql.connector import Error
 from configparser import ConfigParser
 from PyQt5.QtWidgets import QApplication
 # from Gui import Gui
@@ -79,8 +78,8 @@ def read_db_config(filename: str = "config.ini",
     db: Dict[str, str] = {}
     if parser.has_section(section):
         items = parser.items(section)
-        for item in items:
-            db[item[0]] = item[1]
+        for key, value in items.items():
+            db[key] = value
     else:
         logging.error("File {} has no section {}.".format(filename, section))
     return db
@@ -97,13 +96,16 @@ def connect_to_db() -> MySQLConnection:
 
     conn = None
     db_config = read_db_config()
-    try:
-        conn = MySQLConnection(**db_config)
-        if conn.is_connected():
-            return conn
-    except Exception as err:
-        logging.error("Unable to raise database connection.")
-        logging.error(err)
+    if db_config:
+        try:
+            conn = MySQLConnection(**db_config)
+            if conn.is_connected():
+                return conn
+        except Exception as err:
+            logging.error("Unable to raise database connection.")
+            logging.error(err)
+    else:
+        logging.error("Could not get database configuration.")
     return conn
 
 
@@ -117,14 +119,15 @@ def get_ips_from_db() -> List:
 
     ips_from_db: List[str] = []
     conn: MySQLConnection = connect_to_db()
-    if conn:
-        cursor = conn.cursor()
-        cursor.execute(SQL_QUERY)
-        db_data = cursor.fetchall()
-        if len(db_data) > 0:
-            for ip in db_data:
-                ips_from_db.append(ipaddress.ip_address(ip[0]))
-            conn.close()
+    cursor = conn.cursor()
+    cursor.execute(SQL_QUERY)
+    db_data = cursor.fetchall()
+    if len(db_data) > 0:
+        for ip in db_data:
+            ips_from_db.append(ipaddress.ip_address(ip[0]))
+        conn.close()
+    else:
+        logging.error("Unable to fetch addresses from database.")
     return ips_from_db
 
 
@@ -132,7 +135,6 @@ def main():
     """ Application entry point """
 
     args: List[str] = get_args()
-    print(args)
     app = QApplication(sys.argv)
     subnets: List[str] = []
     for subnet in args.subnet:
