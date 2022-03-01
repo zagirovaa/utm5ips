@@ -15,21 +15,26 @@ import ipaddress
 import sys
 
 
+# Used in logging module
 APP_NAME: str = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+# Used in arguments parsing module
 DESCRIPTION: str = """The script searches for free
 ip addresses in NetUp UTM5 billing system."""
+# Application can work either in gui or console mode
 MODES: Tuple[str] = ("gui", "con")
+# Query for getting ip addresses that are not marked for deletion
 SQL_QUERY: str = "SELECT ip FROM ip_groups WHERE is_deleted=0"
 # IP addresses are stored in the database in decimal format
 # Some addresses have negative values
-# To make them positive it is necessary to add the value above to them
+# To make them positive it is necessary to add them to the value below
 COEFFICIENT: int = 4294967296
+# Used in printing results in console mode
 TEMPLATE: str = """
 Subnet: {}
 ----------------------------
 {}
 """
-
+# Logging configuration section
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(threadName)s] [%(levelname)s] - %(message)s",
@@ -38,7 +43,7 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
-
+# Arguments parsing configuration section
 parser = argparse.ArgumentParser(description=DESCRIPTION)
 parser.add_argument('subnet',
                     nargs="+",
@@ -79,7 +84,7 @@ def read_db_config(filename: str = "config.ini",
     parser.read(full_name)
     db: Dict[str, str] = {}
     if parser.has_section(section):
-        items = parser.items(section)
+        items: List[Tuple[str]] = parser.items(section)
         for item in items:
             db[item[0]] = item[1]
     else:
@@ -180,6 +185,8 @@ def main():
         if ip_addresses:
             for key, value in ip_addresses.items():
                 print(TEMPLATE.format(key, "\n".join(value)))
+        else:
+            logging.warning("No free ip address available.")
     else:
         app = QApplication(sys.argv)
         sys.exit(app.exec_())
