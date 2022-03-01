@@ -24,6 +24,11 @@ SQL_QUERY: str = "SELECT ip FROM ip_groups WHERE is_deleted=0"
 # Some addresses have negative values
 # To make them positive it is necessary to add the value above to them
 COEFFICIENT: int = 4294967296
+TEMPLATE: str = """
+Subnet: {}
+----------------------------
+{}
+"""
 
 logging.basicConfig(
     level=logging.INFO,
@@ -170,11 +175,13 @@ def get_free_ips() -> Dict:
 def main():
     """ Application entry point """
 
-    app = QApplication(sys.argv)
     if args.mode == "con":
-        print(get_free_ips())
-        sys.exit(0)
+        ip_addresses = get_free_ips()
+        if ip_addresses:
+            for key, value in ip_addresses.items():
+                print(TEMPLATE.format(key, "\n".join(value)))
     else:
+        app = QApplication(sys.argv)
         sys.exit(app.exec_())
 
 
