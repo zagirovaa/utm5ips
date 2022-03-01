@@ -20,6 +20,10 @@ DESCRIPTION: str = """The script searches for free
 ip addresses in NetUp UTM5 billing system."""
 MODES: Tuple[str] = ("gui", "con")
 SQL_QUERY: str = "SELECT ip FROM ip_groups WHERE is_deleted=0"
+# IP addresses are stored in the database in decimal format
+# Some addresses have negative values
+# To make them positive it is necessary to add the value above to them
+COEFFICIENT: int = 4294967296
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,28 +34,21 @@ logging.basicConfig(
     ]
 )
 
-
-def get_args() -> List:
-    """
-    Function returns arguments passed to the application
-
-    :returns: Array of arguments
-    :rtype: List[str]
-    """
-
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    parser.add_argument('subnet',
-                        nargs="+",
-                        help="ipv4 subnet (192.168.0.0/24)")
-    parser.add_argument("-m",
-                        dest="mode",
-                        choices=["gui", "con"],
-                        required=True,
-                        help="choose application mode")
-    parser.add_argument("-a",
-                        action="store_true",
-                        help="list all available ip addresses")
-    return parser.parse_args()
+parser = argparse.ArgumentParser(description=DESCRIPTION)
+parser.add_argument('subnet',
+                    nargs="+",
+                    help="ipv4 subnet (192.168.0.0/24)")
+parser.add_argument("-m",
+                    dest="mode",
+                    choices=["gui", "con"],
+                    required=True,
+                    help="choose application mode")
+parser.add_argument("-a",
+                    dest="all",
+                    action="store_true",
+                    default=False,
+                    help="list all available ip addresses")
+args = parser.parse_args()
 
 
 def read_db_config(filename: str = "config.ini",
@@ -78,8 +75,8 @@ def read_db_config(filename: str = "config.ini",
     db: Dict[str, str] = {}
     if parser.has_section(section):
         items = parser.items(section)
-        for key, value in items.items():
-            db[key] = value
+        for item in items:
+            db[item[0]] = item[1]
     else:
         logging.error("File {} has no section {}.".format(filename, section))
     return db
@@ -118,33 +115,66 @@ def get_ips_from_db() -> List:
     """
 
     ips_from_db: List[str] = []
+    real_ip: str = ""
     conn: MySQLConnection = connect_to_db()
     cursor = conn.cursor()
     cursor.execute(SQL_QUERY)
     db_data = cursor.fetchall()
     if len(db_data) > 0:
         for ip in db_data:
-            ips_from_db.append(ipaddress.ip_address(ip[0]))
+            # Ip address is in the first place of returned tulip
+            # Need a separate variable cause tulips are immutable
+            real_ip = ip[0]
+            if real_ip < 0:
+                real_ip += COEFFICIENT
+            ips_from_db.append(ipaddress.ip_address(real_ip))
         conn.close()
     else:
         logging.error("Unable to fetch addresses from database.")
     return ips_from_db
 
 
-def main():
-    """ Application entry point """
+def get_free_ips() -> Dict:
+    """
+    Function returns dictionary with free ip addresses
 
-    args: List[str] = get_args()
-    app = QApplication(sys.argv)
+    :returns: Dictionary with ip addresses
+    :rtype: Dict[str, List[str]]
+    """
+
+    # Key of the dictionary is a subnet address
+    # Value is a list of free ip addresses
+    # available in the given subnet
+    ip_addresses: Dict[str, List[str]] = {}
     subnets: List[str] = []
     for subnet in args.subnet:
         subnets.append(ipaddress.ip_network(subnet))
     ips_from_db = get_ips_from_db()
     if len(ips_from_db) > 0:
-        for subnet in subnets:
-            for ip in subnet.hosts():
-                if ip not in ips_from_db:
-                    print(ip)
+        if args.all:
+            for subnet in subnets:
+                ip_addresses[str(subnet)] = []
+                for ip in subnet.hosts():
+                    if ip not in ips_from_db:
+                        ip_addresses[str(subnet)].append(str(ip))
+        else:
+            for subnet in subnets:
+                ip_addresses[str(subnet)] = []
+                for ip in subnet.hosts():
+                    if ip not in ips_from_db:
+                        ip_addresses[str(subnet)].append(str(ip))
+                        break
+    return ip_addresses
+
+
+def main():
+    """ Application entry point """
+
+    app = QApplication(sys.argv)
+    if args.mode == "con":
+        print(get_free_ips())
+        sys.exit(0)
+    else:
         sys.exit(app.exec_())
 
 
