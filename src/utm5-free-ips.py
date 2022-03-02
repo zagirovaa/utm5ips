@@ -41,9 +41,6 @@ logging.basicConfig(
 )
 # Arguments parsing configuration section
 parser = argparse.ArgumentParser(description=DESCRIPTION)
-parser.add_argument('subnet',
-                    nargs="+",
-                    help="ipv4 subnet (192.168.0.0/24)")
 parser.add_argument("-m",
                     dest="mode",
                     choices=["gui", "con"],
@@ -57,19 +54,15 @@ parser.add_argument("-a",
 args = parser.parse_args()
 
 
-def read_db_config(filename: str = "config.ini",
-                   section: str = "mysql") -> Dict:
+def read_db_config(filename: str = "config.ini") -> Dict:
     """
     Function returns database connection settings
 
     :param filename: Config filename
     :type filename: str
 
-    :param section: Config section
-    :type section: str
-
     :returns: Dictionary with connection settings
-    :rtype: Dict[str, str]
+    :rtype: Dict[str, List[str]]
     """
 
     parser = ConfigParser()
@@ -78,14 +71,31 @@ def read_db_config(filename: str = "config.ini",
     else:
         full_name: str = sys.path[0] + "/" + filename
     parser.read(full_name)
-    db: Dict[str, str] = {}
-    if parser.has_section(section):
-        items: List[Tuple[str]] = parser.items(section)
+    config = {
+        "database": {
+            "host": "",
+            "database": "",
+            "user": "",
+            "password": ""
+        },
+        "subnets": [],
+        "exceptions": []
+    }
+    if parser.has_section("database"):
+        items: List[Tuple[str]] = parser.items("database")
         for item in items:
-            db[item[0]] = item[1]
+            config["database"][item[0]] = item[1]
     else:
-        logging.error("File {} has no section {}.".format(filename, section))
-    return db
+        logging.error("File {} has no section database.".format(filename))
+    for section in ("subnets", "exceptions"):
+        if parser.has_section(section):
+            items: List[Tuple[str]] = parser.items(section)
+            for item in items:
+                config[section].append(item[1])
+        else:
+            logging.error("File {} has no section {}.".format(filename,
+                                                              section))
+    return config
 
 
 def connect_to_db() -> MySQLConnection:
@@ -98,7 +108,7 @@ def connect_to_db() -> MySQLConnection:
     """
 
     conn = None
-    db_config = read_db_config()
+    db_config = read_db_config()["database"]
     if db_config:
         try:
             conn = MySQLConnection(**db_config)
@@ -152,23 +162,17 @@ def get_free_ips() -> Dict:
     # Value is a list of free ip addresses
     # available in the given subnet
     ip_addresses: Dict[str, List[str]] = {}
-    subnets: List[str] = []
-    for subnet in args.subnet:
-        subnets.append(ipaddress.ip_network(subnet))
+    subnets: List[str] = read_db_config()["subnets"]
+    exceptions: List[str] = read_db_config()["exceptions"]
     ips_from_db = get_ips_from_db()
     if len(ips_from_db) > 0:
-        if args.all:
-            for subnet in subnets:
-                ip_addresses[str(subnet)] = []
-                for ip in subnet.hosts():
-                    if ip not in ips_from_db:
-                        ip_addresses[str(subnet)].append(str(ip))
-        else:
-            for subnet in subnets:
-                ip_addresses[str(subnet)] = []
-                for ip in subnet.hosts():
-                    if ip not in ips_from_db:
-                        ip_addresses[str(subnet)].append(str(ip))
+        for subnet in subnets:
+            subnet = ipaddress.ip_network(subnet)
+            ip_addresses[str(subnet)] = []
+            for ip in subnet.hosts():
+                if ip not in ips_from_db and str(ip) not in exceptions:
+                    ip_addresses[str(subnet)].append(str(ip))
+                    if not args.all:
                         break
     return ip_addresses
 
