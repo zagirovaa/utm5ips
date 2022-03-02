@@ -6,7 +6,7 @@ from __future__ import annotations
 from mysql.connector import MySQLConnection
 from configparser import ConfigParser
 from PyQt5.QtWidgets import QApplication
-# from Gui import Gui
+from Gui import Window
 from typing import List, Dict, Tuple
 import argparse
 import logging
@@ -180,16 +180,20 @@ def get_free_ips() -> Dict:
 def main():
     """ Application entry point """
 
-    if args.mode == "con":
-        ip_addresses = get_free_ips()
-        if ip_addresses:
+    ip_addresses: List[str] = get_free_ips()
+    if ip_addresses:
+        if args.mode == "con":
             for key, value in ip_addresses.items():
                 print(TEMPLATE.format(key, "\n".join(value)))
         else:
-            logging.warning("No free ip address available.")
+            app = QApplication(sys.argv)
+            frm_main = Window()
+            for key, value in ip_addresses.items():
+                frm_main.add_subnet(key, value)
+            frm_main.show()
+            sys.exit(app.exec_())
     else:
-        app = QApplication(sys.argv)
-        sys.exit(app.exec_())
+        logging.warning("No free ip address available.")
 
 
 if __name__ == "__main__":
