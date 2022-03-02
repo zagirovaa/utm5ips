@@ -191,6 +191,7 @@ def main():
             for key, value in ip_addresses.items():
                 frm_main.add_subnet(key, value)
             frm_main.show()
+            frm_main.fix_size()
             sys.exit(app.exec_())
     else:
         logging.warning("No free ip address available.")

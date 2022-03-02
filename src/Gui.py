@@ -8,7 +8,10 @@ from PyQt5.QtWidgets import QWidget, QFormLayout, QLabel, QComboBox
 
 
 class Window(QWidget):
-    """ Class for creating QT5 form with listbox element """
+    """
+    Class for creating QT5 forms with comboboxes
+    filled with free addresses in given subnets
+    """
 
     def __init__(self) -> None:
         """ Constructor """
@@ -17,8 +20,24 @@ class Window(QWidget):
         self.setWindowTitle("UTM5 Free IPs")
         self.layout = QFormLayout()
 
+    def fix_size(self) -> None:
+        """ Function makes window non-resisable """
+
+        self.setMaximumSize(self.width(), self.height())
+        self.setMinimumSize(self.width(), self.height())
+
     def add_subnet(self, subnet: str, addresses: List[str]) -> None:
-        label = QLabel("{}".format(subnet))
+        """
+        Function fills list of free ip addresses in combobox
+
+        :param subnet: Subnet of free addresses
+        :type subnet: str
+
+        :param addresses: List of free addresses of the subnet
+        :type addresses: List[str]
+        """
+
+        label = QLabel(subnet)
         combobox = QComboBox()
         combobox.addItems(addresses)
         self.layout.addRow(label, combobox)
