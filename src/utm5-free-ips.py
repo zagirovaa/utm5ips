@@ -91,7 +91,7 @@ def read_db_config(filename: str = "config.ini") -> Dict:
         if parser.has_section(section):
             items: List[Tuple[str]] = parser.items(section)
             for item in items:
-                config[section].append(item[1])
+                config[section].append({item[0]: item[1]})
         else:
             logging.error("File {} has no section {}.".format(filename,
                                                               section))
@@ -158,22 +158,27 @@ def get_free_ips() -> Dict:
     :rtype: Dict[str, List[str]]
     """
 
-    # Key of the dictionary is a subnet address
-    # Value is a list of free ip addresses
-    # available in the given subnet
-    ip_addresses: Dict[str, List[str]] = {}
-    subnets: List[str] = read_db_config()["subnets"]
-    exceptions: List[str] = read_db_config()["exceptions"]
     ips_from_db = get_ips_from_db()
     if len(ips_from_db) > 0:
+        # Key of the dictionary is a subnet address
+        # Value is a list of free ip addresses
+        # available in the given subnet
+        ip_addresses: Dict[str, List[str]] = {}
+        exceptions: List[str] = []
+        config: Dict = read_db_config()
+        subnets: List[str] = config["subnets"]
+        for item in config["exceptions"]:
+            for key, value in item.items():
+                exceptions.append(value)
         for subnet in subnets:
-            subnet = ipaddress.ip_network(subnet)
-            ip_addresses[str(subnet)] = []
-            for ip in subnet.hosts():
-                if ip not in ips_from_db and str(ip) not in exceptions:
-                    ip_addresses[str(subnet)].append(str(ip))
-                    if not args.all:
-                        break
+            for key, value in subnet.items():
+                value = ipaddress.ip_network(value)
+                ip_addresses[key] = []
+                for ip in value.hosts():
+                    if ip not in ips_from_db and str(ip) not in exceptions:
+                        ip_addresses[key].append(str(ip))
+                        if not args.all:
+                            break
     return ip_addresses
 
 
