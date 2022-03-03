@@ -29,7 +29,7 @@ SQL_QUERY: str = "SELECT ip FROM ip_groups WHERE is_deleted=0"
 # To make them positive it is necessary to add them to the value below
 COEFFICIENT: int = 4294967296
 # Used in printing results in console mode
-TEMPLATE: str = "{}\n------------------\n{}"
+TEMPLATE: str = "{}\n------------------\n{}\n"
 # Logging configuration section
 logging.basicConfig(
     level=logging.INFO,
