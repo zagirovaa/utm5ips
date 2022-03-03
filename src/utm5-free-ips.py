@@ -54,7 +54,7 @@ parser.add_argument("-a",
 args = parser.parse_args()
 
 
-def read_db_config(filename: str = "config.ini") -> Dict:
+def get_config(filename: str = "config.ini") -> Dict:
     """
     Function returns database connection settings
 
@@ -62,15 +62,9 @@ def read_db_config(filename: str = "config.ini") -> Dict:
     :type filename: str
 
     :returns: Dictionary with connection settings
-    :rtype: Dict[str, List[str]]
+    :rtype: Dict[str, {Dict[str], List[str]}]
     """
 
-    parser = ConfigParser()
-    if sys.platform.startswith("win32"):
-        full_name: str = sys.path[0] + "\\" + filename
-    else:
-        full_name: str = sys.path[0] + "/" + filename
-    parser.read(full_name)
     config = {
         "database": {
             "host": "",
@@ -81,21 +75,25 @@ def read_db_config(filename: str = "config.ini") -> Dict:
         "subnets": [],
         "exceptions": []
     }
-    if parser.has_section("database"):
+    parser = ConfigParser()
+    if sys.platform.startswith("win32"):
+        full_name: str = sys.path[0] + "\\" + filename
+    else:
+        full_name: str = sys.path[0] + "/" + filename
+    try:
+        parser.read(full_name)
         items: List[Tuple[str]] = parser.items("database")
         for item in items:
             config["database"][item[0]] = item[1]
-    else:
-        logging.error("File {} has no section database.".format(filename))
-    for section in ("subnets", "exceptions"):
-        if parser.has_section(section):
+        for section in ("subnets", "exceptions"):
             items: List[Tuple[str]] = parser.items(section)
             for item in items:
                 config[section].append({item[0]: item[1]})
-        else:
-            logging.error("File {} has no section {}.".format(filename,
-                                                              section))
-    return config
+        return config
+    except Exception as err:
+        logging.error("Error in config file or file does not exist.")
+        logging.error(err)
+    quit()
 
 
 def connect_to_db() -> MySQLConnection:
@@ -107,19 +105,20 @@ def connect_to_db() -> MySQLConnection:
     :rtype: MySQLConnection
     """
 
-    conn = None
-    db_config = read_db_config()["database"]
+    db_config = get_config()["database"]
     if db_config:
         try:
             conn = MySQLConnection(**db_config)
             if conn.is_connected():
                 return conn
+            else:
+                logging.error("Could not connect to the database.")
         except Exception as err:
             logging.error("Unable to raise database connection.")
             logging.error(err)
     else:
         logging.error("Could not get database configuration.")
-    return conn
+    quit()
 
 
 def get_ips_from_db() -> List:
@@ -131,23 +130,27 @@ def get_ips_from_db() -> List:
     """
 
     ips_from_db: List[str] = []
-    real_ip: str = ""
-    conn: MySQLConnection = connect_to_db()
-    cursor = conn.cursor()
-    cursor.execute(SQL_QUERY)
-    db_data = cursor.fetchall()
-    if len(db_data) > 0:
-        for ip in db_data:
-            # Ip address is in the first place of returned tulip
-            # Need a separate variable cause tulips are immutable
-            real_ip = ip[0]
-            if real_ip < 0:
-                real_ip += COEFFICIENT
-            ips_from_db.append(ipaddress.ip_address(real_ip))
-        conn.close()
-    else:
+    conn = connect_to_db()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(SQL_QUERY)
+        db_data = cursor.fetchall()
+        if len(db_data) > 0:
+            for ip in db_data:
+                # Ip address is in the first place of returned tulip
+                # Need a separate variable cause tulips are immutable
+                real_ip = ip[0]
+                if real_ip < 0:
+                    real_ip += COEFFICIENT
+                ips_from_db.append(ipaddress.ip_address(real_ip))
+            conn.close()
+            return ips_from_db
+        else:
+            logging.error("Could not find any address in the database.")
+    except Exception as err:
         logging.error("Unable to fetch addresses from database.")
-    return ips_from_db
+        logging.error(err)
+    quit()
 
 
 def get_free_ips() -> Dict:
@@ -159,17 +162,17 @@ def get_free_ips() -> Dict:
     """
 
     ips_from_db = get_ips_from_db()
-    if len(ips_from_db) > 0:
-        # Key of the dictionary is a subnet address
-        # Value is a list of free ip addresses
-        # available in the given subnet
-        ip_addresses: Dict[str, List[str]] = {}
-        exceptions: List[str] = []
-        config: Dict = read_db_config()
-        subnets: List[str] = config["subnets"]
-        for item in config["exceptions"]:
-            for key, value in item.items():
-                exceptions.append(value)
+    # Key of the dictionary is a subnet address
+    # Value is a list of free ip addresses
+    # available in the given subnet
+    ip_addresses: Dict[str, List[str]] = {}
+    exceptions: List[str] = []
+    config: Dict = get_config()
+    subnets: List[str] = config["subnets"]
+    for item in config["exceptions"]:
+        for key, value in item.items():
+            exceptions.append(value)
+    if subnets:
         for subnet in subnets:
             for key, value in subnet.items():
                 value = ipaddress.ip_network(value)
@@ -177,29 +180,32 @@ def get_free_ips() -> Dict:
                 for ip in value.hosts():
                     if ip not in ips_from_db and str(ip) not in exceptions:
                         ip_addresses[key].append(str(ip))
+                        # If -a option is not passed to the application
+                        # only one free ip address for each subnet
+                        # must be showed in a list
                         if not args.all:
                             break
-    return ip_addresses
+        return ip_addresses
+    else:
+        logging.error("No subnet defined in config file.")
+    quit()
 
 
 def main():
     """ Application entry point """
 
     ip_addresses: List[str] = get_free_ips()
-    if ip_addresses:
-        if args.mode == "con":
-            for key, value in ip_addresses.items():
-                print(TEMPLATE.format(key, "\n".join(value)))
-        else:
-            app = QApplication(sys.argv)
-            frm_main = Window()
-            for key, value in ip_addresses.items():
-                frm_main.add_subnet(key, value)
-            frm_main.show()
-            frm_main.fix_size()
-            sys.exit(app.exec_())
+    if args.mode == "con":
+        for key, value in ip_addresses.items():
+            print(TEMPLATE.format(key, "\n".join(value)))
     else:
-        logging.warning("No free ip address available.")
+        app = QApplication(sys.argv)
+        frm_main = Window()
+        for key, value in ip_addresses.items():
+            frm_main.add_subnet(key, value)
+        frm_main.show()
+        frm_main.fix_size()
+        sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
