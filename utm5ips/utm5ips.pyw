@@ -3,56 +3,26 @@
 
 
 from __future__ import annotations
-from mysql.connector import MySQLConnection
-from configparser import ConfigParser
-from PyQt5.QtWidgets import QApplication
-from Gui import Window
-from typing import List, Dict, Tuple
-from argparse import ArgumentParser
-import logging
-import os
-from ipaddress import ip_network
 import sys
+from configparser import ConfigParser
+from typing import List, Dict, Tuple
+from ipaddress import ip_network
+import logging
+from PyQt5.QtWidgets import QApplication
+from mysql.connector import MySQLConnection
+from Gui import Window
+from __init__ import args
 
 
-# Used in logging module
-APP_NAME: str = os.path.splitext(os.path.basename(sys.argv[0]))[0]
-# Used in arguments parsing module
-DESCRIPTION: str = """The script searches for free
-ip addresses in NetUp UTM5 billing system."""
-# Application can work either in gui or console mode
-MODES: Tuple[str] = ("gui", "con")
 # IP addresses are stored in the database in decimal format
 # Some addresses have negative values
 # To make them positive it is necessary to add them to the value below
 COEFFICIENT: int = 4294967296
 # Query for getting ip addresses that are not marked for deletion
-SQL_QUERY: str = """SELECT INET_NTOA(IF(ip < 0, ip + {}, ip))
-FROM ip_groups WHERE is_deleted=0""".format(COEFFICIENT)
+SQL_QUERY: str = f"""SELECT INET_NTOA(IF(ip < 0, ip + {COEFFICIENT}, ip))
+FROM ip_groups WHERE is_deleted=0"""
 # Used in printing results in console mode
 TEMPLATE: str = "{}\n------------------\n{}\n"
-# Logging configuration section
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(threadName)s] [%(levelname)s] - %(message)s",
-    handlers=[
-        logging.FileHandler("{0}/{1}.log".format(os.getcwd(), APP_NAME)),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-# Arguments parsing configuration section
-parser = ArgumentParser(description=DESCRIPTION)
-parser.add_argument("-m",
-                    dest="mode",
-                    choices=["gui", "con"],
-                    default="gui",
-                    help="choose application mode")
-parser.add_argument("-a",
-                    dest="all",
-                    action="store_true",
-                    default=False,
-                    help="list all available ip addresses")
-args = parser.parse_args()
 
 
 def get_config(filename: str = "config.ini") -> Dict:
