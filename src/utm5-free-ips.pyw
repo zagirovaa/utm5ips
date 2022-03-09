@@ -11,7 +11,7 @@ from typing import List, Dict, Tuple
 from argparse import ArgumentParser
 import logging
 import os
-from ipaddress import ip_address, ip_network
+from ipaddress import ip_network
 import sys
 
 
@@ -23,7 +23,7 @@ ip addresses in NetUp UTM5 billing system."""
 # Application can work either in gui or console mode
 MODES: Tuple[str] = ("gui", "con")
 # Query for getting ip addresses that are not marked for deletion
-SQL_QUERY: str = "SELECT ip FROM ip_groups WHERE is_deleted=0"
+SQL_QUERY: str = "SELECT INET_NTOA(ip) FROM ip_groups WHERE is_deleted=0"
 # IP addresses are stored in the database in decimal format
 # Some addresses have negative values
 # To make them positive it is necessary to add them to the value below
@@ -135,28 +135,19 @@ def get_ips_from_db() -> List:
         cursor = conn.cursor()
         cursor.execute(SQL_QUERY)
         db_data = cursor.fetchall()
-        if len(db_data) > 0:
-            if args.all:
-                for ip in db_data:
-                    # Ip address is in the first place of returned tulip
-                    # Need a separate variable cause tulips are immutable
-                    real_ip: int = ip[0]
-                    if real_ip < 0:
-                        real_ip += COEFFICIENT
-                    ips_from_db.append(ip_address(real_ip))
-                conn.close()
-            else:
-                # Getting only first ip address
-                real_ip: int = db_data[0][0]
-                if real_ip < 0:
-                    real_ip += COEFFICIENT
-                ips_from_db.append(ip_address(real_ip))
-            return ips_from_db
-        else:
-            logging.error("Could not find any address in the database.")
     except Exception as err:
         logging.error("Unable to fetch addresses from database.")
         logging.error(err)
+    if len(db_data) > 0:
+        if args.all:
+            for ip in db_data:
+                ips_from_db.append(ip[0])
+            conn.close()
+        else:
+            ips_from_db.append(db_data[0][0])
+        return ips_from_db
+    else:
+        logging.error("Could not find any address in the database.")
     quit()
 
 
@@ -181,15 +172,17 @@ def get_free_ips() -> Dict:
             exceptions.append(value)
     if subnets:
         for subnet in subnets:
-            for key, value in subnet.items():
+            items = subnet.items()
+            for key, value in items:
                 value = ip_network(value)
                 ip_addresses[key] = []
-                for ip in value.hosts():
-                    if ip not in ips_from_db and str(ip) not in exceptions:
-                        ip_addresses[key].append(str(ip))
-                        # If -a option is not passed to the application
-                        # only one free ip address for each subnet
-                        # must be showed in a list
+                hosts = value.hosts()
+                for ip in hosts:
+                    ip = str(ip)
+                    if ip not in ips_from_db and ip not in exceptions:
+                        ip_addresses[key].append(ip)
+                        # If -a parameter is not passed, only one free
+                        # ip address for each subnet must be added to the list
                         if not args.all:
                             break
         return ip_addresses
