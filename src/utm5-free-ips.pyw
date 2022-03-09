@@ -22,12 +22,13 @@ DESCRIPTION: str = """The script searches for free
 ip addresses in NetUp UTM5 billing system."""
 # Application can work either in gui or console mode
 MODES: Tuple[str] = ("gui", "con")
-# Query for getting ip addresses that are not marked for deletion
-SQL_QUERY: str = "SELECT INET_NTOA(ip) FROM ip_groups WHERE is_deleted=0"
 # IP addresses are stored in the database in decimal format
 # Some addresses have negative values
 # To make them positive it is necessary to add them to the value below
 COEFFICIENT: int = 4294967296
+# Query for getting ip addresses that are not marked for deletion
+SQL_QUERY: str = """SELECT INET_NTOA(IF(ip < 0, ip + {}, ip))
+FROM ip_groups WHERE is_deleted=0""".format(COEFFICIENT)
 # Used in printing results in console mode
 TEMPLATE: str = "{}\n------------------\n{}\n"
 # Logging configuration section
@@ -135,19 +136,19 @@ def get_ips_from_db() -> List:
         cursor = conn.cursor()
         cursor.execute(SQL_QUERY)
         db_data = cursor.fetchall()
+        if len(db_data) > 0:
+            if args.all:
+                for ip in db_data:
+                    ips_from_db.append(ip[0])
+                conn.close()
+            else:
+                ips_from_db.append(db_data[0][0])
+            return ips_from_db
+        else:
+            logging.error("Could not find any address in the database.")
     except Exception as err:
         logging.error("Unable to fetch addresses from database.")
         logging.error(err)
-    if len(db_data) > 0:
-        if args.all:
-            for ip in db_data:
-                ips_from_db.append(ip[0])
-            conn.close()
-        else:
-            ips_from_db.append(db_data[0][0])
-        return ips_from_db
-    else:
-        logging.error("Could not find any address in the database.")
     quit()
 
 
