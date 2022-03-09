@@ -1,9 +1,9 @@
-# utm5-free-ips
+# utm5ips
 Search for free ip addresses in NetUp UTM5 billing system
 
 ```
 
-usage: utm5-free-ips.py [-h] [-m {gui,con}] [-a]
+usage: utm5ips.py [-h] [-m {gui,con}] [-a]
 
 The script searches for free ip addresses in NetUp UTM5 billing system.
 
@@ -15,10 +15,10 @@ optional arguments:
 ```
 ### Installation
 - Download application from GitHub  
-  ``` git clone git@github.com:ZagirovAA/utm5-free-ips.git  ```
+  ``` git clone git@github.com:ZagirovAA/utm5ips.git  ```
 
 - Go to the downloaded folder  
-  ``` cd utm5-free-ips ```
+  ``` cd utm5ips ```
 
 - Install all required dependencies  
   ``` python3 install -r requirements.txt ```
@@ -30,10 +30,10 @@ optional arguments:
 
 - Start the application  
   - in console mode  
-    ``` python3 utm5-free-ips.pyw -m con ```
+    ``` python3 utm5ips.pyw -m con ```
   - in graphical mode (default mode)  
-    ``` python3 utm5-free-ips.pyw ```
+    ``` python3 utm5ips.pyw ```
   
   - showing all free ips from each subnet (available for both modes above)  
-    ``` python3 utm5-free-ips.pyw -m con -a ```  
-    ``` python3 utm5-free-ips.pyw -a ```
+    ``` python3 utm5ips.pyw -m con -a ```  
+    ``` python3 utm5ips.pyw -a ```
