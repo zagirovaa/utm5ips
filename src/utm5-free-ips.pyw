@@ -8,10 +8,10 @@ from configparser import ConfigParser
 from PyQt5.QtWidgets import QApplication
 from Gui import Window
 from typing import List, Dict, Tuple
-import argparse
+from argparse import ArgumentParser
 import logging
 import os
-import ipaddress
+from ipaddress import ip_address, ip_network
 import sys
 
 
@@ -40,7 +40,7 @@ logging.basicConfig(
     ]
 )
 # Arguments parsing configuration section
-parser = argparse.ArgumentParser(description=DESCRIPTION)
+parser = ArgumentParser(description=DESCRIPTION)
 parser.add_argument("-m",
                     dest="mode",
                     choices=["gui", "con"],
@@ -136,14 +136,21 @@ def get_ips_from_db() -> List:
         cursor.execute(SQL_QUERY)
         db_data = cursor.fetchall()
         if len(db_data) > 0:
-            for ip in db_data:
-                # Ip address is in the first place of returned tulip
-                # Need a separate variable cause tulips are immutable
-                real_ip = ip[0]
+            if args.all:
+                for ip in db_data:
+                    # Ip address is in the first place of returned tulip
+                    # Need a separate variable cause tulips are immutable
+                    real_ip: int = ip[0]
+                    if real_ip < 0:
+                        real_ip += COEFFICIENT
+                    ips_from_db.append(ip_address(real_ip))
+                conn.close()
+            else:
+                # Getting only first ip address
+                real_ip: int = db_data[0][0]
                 if real_ip < 0:
                     real_ip += COEFFICIENT
-                ips_from_db.append(ipaddress.ip_address(real_ip))
-            conn.close()
+                ips_from_db.append(ip_address(real_ip))
             return ips_from_db
         else:
             logging.error("Could not find any address in the database.")
@@ -175,7 +182,7 @@ def get_free_ips() -> Dict:
     if subnets:
         for subnet in subnets:
             for key, value in subnet.items():
-                value = ipaddress.ip_network(value)
+                value = ip_network(value)
                 ip_addresses[key] = []
                 for ip in value.hosts():
                     if ip not in ips_from_db and str(ip) not in exceptions:
