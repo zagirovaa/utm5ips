@@ -23,7 +23,7 @@ FROM ip_groups WHERE is_deleted=0""".format(COEFFICIENT)
 TEMPLATE = "{}\n------------------\n{}\n"
 
 
-def get_config(filename = "config.ini"):
+def get_config(filename="config.ini"):
     """
     Function returns database connection settings
 
@@ -105,12 +105,9 @@ def get_ips_from_db():
         cursor.execute(SQL_QUERY)
         db_data = cursor.fetchall()
         if len(db_data) > 0:
-            if args.all:
-                for ip in db_data:
-                    ips_from_db.append(ip[0])
-                conn.close()
-            else:
-                ips_from_db.append(db_data[0][0])
+            for ip in db_data:
+                ips_from_db.append(ip[0])
+            conn.close()
             return ips_from_db
         else:
             logging.error("Could not find any address in the database.")
