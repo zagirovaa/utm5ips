@@ -2,10 +2,8 @@
 # -*- coding: utf-8 -*-
 
 
-from __future__ import annotations
 import sys
 from configparser import ConfigParser
-from typing import List, Dict, Tuple
 from ipaddress import ip_network
 import logging
 from PyQt5.QtWidgets import QApplication
@@ -17,15 +15,15 @@ from __init__ import args
 # IP addresses are stored in the database in decimal format
 # Some addresses have negative values
 # To make them positive it is necessary to add them to the value below
-COEFFICIENT: int = 4294967296
+COEFFICIENT = 4294967296
 # Query for getting ip addresses that are not marked for deletion
-SQL_QUERY: str = f"""SELECT INET_NTOA(IF(ip < 0, ip + {COEFFICIENT}, ip))
-FROM ip_groups WHERE is_deleted=0"""
+SQL_QUERY = """SELECT INET_NTOA(IF(ip < 0, ip + {}, ip))
+FROM ip_groups WHERE is_deleted=0""".format(COEFFICIENT)
 # Used in printing results in console mode
-TEMPLATE: str = "{}\n------------------\n{}\n"
+TEMPLATE = "{}\n------------------\n{}\n"
 
 
-def get_config(filename: str = "config.ini") -> Dict:
+def get_config(filename = "config.ini"):
     """
     Function returns database connection settings
 
@@ -48,16 +46,16 @@ def get_config(filename: str = "config.ini") -> Dict:
     }
     parser = ConfigParser()
     if sys.platform.startswith("win32"):
-        full_name: str = sys.path[0] + "\\" + filename
+        full_name = sys.path[0] + "\\" + filename
     else:
-        full_name: str = sys.path[0] + "/" + filename
+        full_name = sys.path[0] + "/" + filename
     try:
         parser.read(full_name)
-        items: List[Tuple[str]] = parser.items("database")
+        items = parser.items("database")
         for item in items:
             config["database"][item[0]] = item[1]
         for section in ("subnets", "exceptions"):
-            items: List[Tuple[str]] = parser.items(section)
+            items = parser.items(section)
             for item in items:
                 config[section].append({item[0]: item[1]})
         return config
@@ -67,7 +65,7 @@ def get_config(filename: str = "config.ini") -> Dict:
     quit()
 
 
-def connect_to_db() -> MySQLConnection:
+def connect_to_db():
     """
     Function connects to a database using parameters
     from config file and returns a connection
@@ -92,7 +90,7 @@ def connect_to_db() -> MySQLConnection:
     quit()
 
 
-def get_ips_from_db() -> List:
+def get_ips_from_db():
     """
     Function returns list of ip addresses from a database
 
@@ -100,7 +98,7 @@ def get_ips_from_db() -> List:
     :rtype: List[str]
     """
 
-    ips_from_db: List[str] = []
+    ips_from_db = []
     conn = connect_to_db()
     try:
         cursor = conn.cursor()
@@ -122,7 +120,7 @@ def get_ips_from_db() -> List:
     quit()
 
 
-def get_free_ips() -> Dict:
+def get_free_ips():
     """
     Function returns dictionary with free ip addresses
 
@@ -134,10 +132,10 @@ def get_free_ips() -> Dict:
     # Key of the dictionary is a subnet address
     # Value is a list of free ip addresses
     # available in the given subnet
-    ip_addresses: Dict[str, List[str]] = {}
-    exceptions: List[str] = []
-    config: Dict = get_config()
-    subnets: List[str] = config["subnets"]
+    ip_addresses = {}
+    exceptions = []
+    config = get_config()
+    subnets = config["subnets"]
     for item in config["exceptions"]:
         for key, value in item.items():
             exceptions.append(value)
@@ -165,7 +163,7 @@ def get_free_ips() -> Dict:
 def main():
     """ Application entry point """
 
-    ip_addresses: List[str] = get_free_ips()
+    ip_addresses = get_free_ips()
     if args.mode == "con":
         for key, value in ip_addresses.items():
             print(TEMPLATE.format(key, "\n".join(value)))

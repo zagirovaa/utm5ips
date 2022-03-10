@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 
 
-from __future__ import annotations
-from typing import List
 from PyQt5.QtWidgets import QWidget, QFormLayout, QLabel, QComboBox
 
 
@@ -13,20 +11,20 @@ class Window(QWidget):
     filled with free addresses in given subnets
     """
 
-    def __init__(self) -> None:
+    def __init__(self):
         """ Constructor """
 
         super().__init__()
         self.setWindowTitle("UTM5 Free IPs")
         self.layout = QFormLayout()
 
-    def fix_size(self) -> None:
+    def fix_size(self):
         """ Function makes window non-resisable """
 
         self.setMaximumSize(self.width(), self.height())
         self.setMinimumSize(self.width(), self.height())
 
-    def add_subnet(self, subnet: str, addresses: List[str]) -> None:
+    def add_subnet(self, subnet, addresses):
         """
         Function fills list of free ip addresses in combobox
 

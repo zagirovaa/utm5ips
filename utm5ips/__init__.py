@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 
-from __future__ import annotations
 import os
 import sys
 from argparse import ArgumentParser
@@ -10,7 +9,7 @@ import logging
 
 
 # Used in logging module
-APP_NAME: str = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+APP_NAME = os.path.splitext(os.path.basename(sys.argv[0]))[0]
 # Logging configuration section
 logging.basicConfig(
     level=logging.INFO,
@@ -22,7 +21,7 @@ logging.basicConfig(
 )
 
 # Used in arguments parsing module
-DESCRIPTION: str = """The script searches for free
+DESCRIPTION = """The script searches for free
 ip addresses in NetUp UTM5 billing system."""
 # Arguments parsing configuration section
 parser = ArgumentParser(description=DESCRIPTION)
