@@ -67,31 +67,6 @@ def get_config(filename: str = "config.ini") -> Dict:
     quit()
 
 
-def connect_to_db() -> MySQLConnection:
-    """
-    Function connects to a database using parameters
-    from config file and returns a connection
-
-    :returns: Reference to an object representing a database connection
-    :rtype: MySQLConnection
-    """
-
-    db_config = get_config()["database"]
-    if db_config:
-        try:
-            conn = MySQLConnection(**db_config)
-            if conn.is_connected():
-                return conn
-            else:
-                logging.error("Could not connect to the database.")
-        except Exception as err:
-            logging.error("Unable to raise database connection.")
-            logging.error(err)
-    else:
-        logging.error("Could not get database configuration.")
-    quit()
-
-
 def get_ips_from_db() -> List:
     """
     Function returns list of ip addresses from a database
@@ -100,23 +75,37 @@ def get_ips_from_db() -> List:
     :rtype: List[str]
     """
 
-    ips_from_db: List[str] = []
-    conn = connect_to_db()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(SQL_QUERY)
-        db_data = cursor.fetchall()
-        if len(db_data) > 0:
-            for ip in db_data:
-                ips_from_db.append(ip[0])
-            conn.close()
-            return ips_from_db
+    db_config = get_config()["database"]
+    if db_config:
+        try:
+            conn = MySQLConnection(**db_config)
+        except Exception as err:
+            logging.error("Unable to raise database connection.")
+            logging.error(err)
+            return None
+        if conn.is_connected():
+            ips_from_db: List[str] = []
+            try:
+                cursor = conn.cursor()
+                cursor.execute(SQL_QUERY)
+                db_data = cursor.fetchall()
+            except Exception as err:
+                logging.error("Unable to fetch addresses from database.")
+                logging.error(err)
+                conn.close()
+                return None
+            if len(db_data) > 0:
+                ips_from_db = [ip[0] for ip in db_data]
+                cursor.close()
+                conn.close()
+                return ips_from_db
+            else:
+                logging.error("Could not find any address in the database.")
         else:
-            logging.error("Could not find any address in the database.")
-    except Exception as err:
-        logging.error("Unable to fetch addresses from database.")
-        logging.error(err)
-    quit()
+            logging.error("Could not connect to the database.")
+    else:
+        logging.error("Could not get database configuration.")
+    return None
 
 
 def get_free_ips() -> Dict:
@@ -128,52 +117,56 @@ def get_free_ips() -> Dict:
     """
 
     ips_from_db = get_ips_from_db()
-    # Key of the dictionary is a subnet address
-    # Value is a list of free ip addresses
-    # available in the given subnet
-    ip_addresses: Dict[str, List[str]] = {}
-    exceptions: List[str] = []
-    config: Dict = get_config()
-    subnets: List[str] = config["subnets"]
-    for item in config["exceptions"]:
-        for key, value in item.items():
-            exceptions.append(value)
-    if subnets:
-        for subnet in subnets:
-            items = subnet.items()
-            for key, value in items:
-                value = ip_network(value)
-                ip_addresses[key] = []
-                hosts = value.hosts()
-                for ip in hosts:
-                    ip = str(ip)
-                    if ip not in ips_from_db and ip not in exceptions:
-                        ip_addresses[key].append(ip)
-                        # If -a parameter is not passed, only one free
-                        # ip address for each subnet must be added to the list
-                        if not args.all:
-                            break
-        return ip_addresses
-    else:
-        logging.error("No subnet defined in config file.")
-    quit()
+    if ips_from_db:
+        # Key of the dictionary is a subnet address
+        # Value is a list of free ip addresses
+        # available in the given subnet
+        ip_addresses: Dict[str, List[str]] = {}
+        exceptions: List[str] = []
+        config: Dict = get_config()
+        subnets: List[str] = config["subnets"]
+        for item in config["exceptions"]:
+            for key, value in item.items():
+                exceptions.append(value)
+        if subnets:
+            for subnet in subnets:
+                items = subnet.items()
+                for key, value in items:
+                    value = ip_network(value)
+                    ip_addresses[key] = []
+                    hosts = value.hosts()
+                    for ip in hosts:
+                        ip = str(ip)
+                        if ip not in ips_from_db and ip not in exceptions:
+                            ip_addresses[key].append(ip)
+                            # If -a parameter is not passed, only one free
+                            # ip address for each subnet must be added to the list
+                            if not args.all:
+                                break
+            return ip_addresses
+        else:
+            logging.error("No subnet defined in config file.")
+    return None
 
 
 def main():
     """ Application entry point """
 
     ip_addresses: List[str] = get_free_ips()
-    if args.mode == "con":
-        for key, value in ip_addresses.items():
-            print(TEMPLATE.format(key, "\n".join(value)))
+    if ip_addresses:
+        if args.mode == "con":
+            for key, value in ip_addresses.items():
+                print(TEMPLATE.format(key, "\n".join(value)))
+        else:
+            app = QApplication(sys.argv)
+            frm_main = Window()
+            for key, value in ip_addresses.items():
+                frm_main.add_subnet(key, value)
+            frm_main.show()
+            frm_main.fix_size()
+            sys.exit(app.exec_())
     else:
-        app = QApplication(sys.argv)
-        frm_main = Window()
-        for key, value in ip_addresses.items():
-            frm_main.add_subnet(key, value)
-        frm_main.show()
-        frm_main.fix_size()
-        sys.exit(app.exec_())
+        logging.error("No free IP address.")
 
 
 if __name__ == "__main__":
