@@ -3,13 +3,15 @@
 
 
 from __future__ import annotations
-import sys
 from configparser import ConfigParser
-from typing import List, Dict, Tuple
 from ipaddress import ip_network
 import logging
-from PyQt5.QtWidgets import QApplication
+import sys
+from typing import List, Dict, Tuple
+
 from mysql.connector import MySQLConnection
+from PyQt5.QtWidgets import QApplication
+
 from Gui import Window
 from __init__ import args
 
